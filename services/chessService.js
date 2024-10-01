@@ -1,65 +1,76 @@
-const { Chess } = require('chess.js'); // Using chess.js library
+const Chess = require('chess.js').Chess; // Use a chess library like chess.js
 
-class ChessService {
-    constructor() {
-        this.chess = new Chess(); // Initialize a new chess game
-        this.moveHistory = []; // Store history of moves
-    }
+// In-memory game instance (could be expanded to support multiple games)
+let chessGame = new Chess();
 
-    getBoard() {
-        return this.chess.board(); // Returns the current board state
-    }
+// Service to handle chess logic
+const ChessService = {
+    // Initialize a new chess game board
+    getInitialBoard: () => {
+        chessGame.reset(); // Resets the chess board to the initial state
+        return chessGame.board(); // Returns the board's current state
+    },
 
-    makeMove(move) {
-        const result = this.chess.move(move); // Attempt to make a move
+    // Make a move in the game
+    makeMove: (move, currentPlayerColor) => {
+        const moveObj = {
+            from: move.from,
+            to: move.to,
+            promotion: move.promotion // Add pawn promotion if needed (e.g., to 'q')
+        };
+
+        // Ensure it's the correct player's turn and validate the move
+        if (chessGame.turn() !== currentPlayerColor[0]) {
+            throw new Error(`It's not ${currentPlayerColor}'s turn!`);
+        }
+
+        // Attempt to make the move using chess.js
+        const result = chessGame.move(moveObj);
 
         if (result === null) {
             throw new Error('Invalid move');
         }
 
-        // Save the move to history
-        this.moveHistory.push(move);
-        
-        // Check if the game is over
-        if (this.chess.game_over()) {
-            return { result, gameOver: true, status: this.chess.in_checkmate() ? 'checkmate' : 'stalemate' };
-        }
+        // Return the updated board after the move
+        return chessGame.board();
+    },
 
-        return { result, gameOver: false };
-    }
+    // Get the current board state
+    getBoard: () => {
+        return chessGame.board(); // Returns the current state of the chessboard
+    },
 
-    undoMove() {
-        if (this.moveHistory.length === 0) {
-            throw new Error('No moves to undo');
-        }
+    // Undo the last move
+    undoMove: (moveHistory, board) => {
+        // Undo the last move on the chessboard
+        chessGame.undo();
 
-        const lastMove = this.moveHistory.pop();
-        this.chess.undo(); // Undo the last move
-        return lastMove; // Return the undone move
-    }
+        // Remove the last move from the move history
+        const newHistory = moveHistory.slice(0, -1);
 
-    resetGame() {
-        this.chess = new Chess(); // Reset the chess game
-        this.moveHistory = []; // Reset the move history
-    }
-
-    isPlayerTurn(playerColor) {
-        return this.chess.turn() === playerColor; // Check if it's the player's turn
-    }
-
-    getGameStatus() {
+        // Return the updated board and move history
         return {
-            gameOver: this.chess.game_over(),
-            status: this.chess.in_checkmate() ? 'checkmate' : this.chess.in_stalemate() ? 'stalemate' : 'ongoing',
-            currentTurn: this.chess.turn(),
-            moveHistory: this.moveHistory, // Provide move history for analysis
+            newBoard: chessGame.board(),
+            newHistory,
+            move: chessGame.history().pop() // Last move before undo
         };
-    }
+    },
 
-    // Additional helper methods
-    getLegalMoves() {
-        return this.chess.legal_moves(); // Get all legal moves for the current position
+    // Get the game status (ongoing, checkmate, stalemate, etc.)
+    getGameStatus: (board) => {
+        // Check for checkmate or stalemate
+        if (chessGame.in_checkmate()) {
+            return 'checkmate';
+        } else if (chessGame.in_stalemate()) {
+            return 'stalemate';
+        } else if (chessGame.in_draw()) {
+            return 'draw';
+        } else if (chessGame.in_check()) {
+            return 'check';
+        } else {
+            return 'ongoing';
+        }
     }
-}
+};
 
-module.exports = new ChessService();
+module.exports = ChessService;
