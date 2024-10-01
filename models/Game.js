@@ -25,8 +25,22 @@ const gameSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['ongoing', 'checkmate', 'stalemate'], // Possible game statuses
+        enum: ['ongoing', 'checkmate', 'stalemate', 'draw'], // Possible game statuses
         default: 'ongoing',
+    },
+    currentTurn: {
+        type: String,
+        enum: ['white', 'black'], // Whose turn it is to play
+        default: 'white', // White always starts
+    },
+    scheduledTime: {
+        type: Date, // For games that are scheduled for a future time
+        default: null, // Can be null for immediate play
+    },
+    gameResult: {
+        type: String,
+        enum: ['whiteWon', 'blackWon', 'draw', 'inProgress'], // Stores the result of the game
+        default: 'inProgress',
     },
     createdAt: {
         type: Date,
