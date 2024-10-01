@@ -11,5 +11,10 @@ router.post('/undo',GameController.undoMove);
 // Route to get the current status of a game
 router.get('/:gameId/status',GameController.getGameStatus);
 
-// Export the router
+// Get user's game history
+router.get('/history/:userId', gameController.getGameHistory);
+
+// Get leaderboard
+router.get('/leaderboard', gameController.getLeaderboard);
+
 module.exports = router;
