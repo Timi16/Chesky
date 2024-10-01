@@ -5,7 +5,7 @@ const ChessService = require('../services/chessService');
 
 // Elo rating calculation
 const calculateEloRating = (playerRating, opponentRating, outcome) => {
-    const k = 32; // K-factor, can be adjusted
+    const k = 32; // K-factor
     const expectedScore = 1 / (1 + Math.pow(10, (opponentRating - playerRating) / 400));
     return playerRating + k * (outcome - expectedScore);
 };
@@ -40,12 +40,43 @@ const recordGameResult = async (winnerId, loserId, gameId) => {
     await loser.save();
 };
 
+// Function to handle draw results
+const recordDrawResult = async (player1Id, player2Id, gameId) => {
+    const player1 = await User.findById(player1Id);
+    const player2 = await User.findById(player2Id);
+
+    // Update the game history for both players
+    await GameHistory.create({
+        player: player1Id,
+        gameId: gameId,
+        result: 'draw',
+    });
+
+    await GameHistory.create({
+        player: player2Id,
+        gameId: gameId,
+        result: 'draw',
+    });
+
+    // Update ratings for a draw (both players gain or lose a small amount)
+    const expectedScore1 = 1 / (1 + Math.pow(10, (player2.rating - player1.rating) / 400));
+    const expectedScore2 = 1 / (1 + Math.pow(10, (player1.rating - player2.rating) / 400));
+    
+    player1.rating += 16 * (0.5 - expectedScore1); // Adjust player1's rating
+    player2.rating += 16 * (0.5 - expectedScore2); // Adjust player2's rating
+
+    await player1.save();
+    await player2.save();
+};
+
 // Call this function when a game ends
 const endGame = async (game) => {
     if (game.status === 'checkmate') {
         const winnerId = game.players.white.equals(game.currentTurn) ? game.players.black : game.players.white;
         const loserId = game.players.white.equals(game.currentTurn) ? game.players.white : game.players.black;
         await recordGameResult(winnerId, loserId, game._id);
+    } else if (game.status === 'draw') {
+        await recordDrawResult(game.players.white, game.players.black, game._id);
     }
 };
 
@@ -100,8 +131,13 @@ exports.makeMove = async (req, res) => {
         game.board = ChessService.getBoard();  // Update the board with the new state
         game.moveHistory.push(move);  // Record the move in history
 
-        // Switch the turn to the other player
-        game.currentTurn = currentPlayerColor === 'white' ? 'black' : 'white';
+        // Check for checkmate or draw conditions before switching turns
+        if (moveResult === 'checkmate' || moveResult === 'draw') {
+            game.status = moveResult; // Update game status
+        } else {
+            // Switch the turn to the other player
+            game.currentTurn = currentPlayerColor === 'white' ? 'black' : 'white';
+        }
 
         // Save the game state
         await game.save();
